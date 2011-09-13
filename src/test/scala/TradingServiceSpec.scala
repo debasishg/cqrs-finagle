@@ -26,14 +26,16 @@ class TradingServiceSpec extends Spec with ShouldMatchers {
 
       // domain logic
       val enrichedTradeFutures: Seq[Future[Trade]] = 
-        trds.map(trd => 
-          doAddValueDate(trd) flatMap(t => doEnrichTrade(t)))
+        trds.map(trd => doAddValueDate(trd) flatMap(t => doEnrichTrade(t)))
+
       val enrichedTradesFuture: Future[Seq[Trade]] = Future.collect(enrichedTradeFutures)
 
       // sum all tax/fees
       enrichedTradesFuture onSuccess { trades => sumTaxFees(trades)().sum should equal(6370.625) }
       getCommandSnapshot onSuccess { _.foreach(println) }
       getCommandSnapshot onSuccess { trades => sumTaxFees(trades)().sum should equal(6370.625) }
+
+      sumTaxFees(getAllTrades)().sum should equal(6370.625)
     }
   }
 }
