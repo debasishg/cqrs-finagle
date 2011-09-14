@@ -8,15 +8,6 @@ import java.util.concurrent.Executors
 import net.debasishg.domain.trade.model._
 import TradeModel._
 
-// command events
-// processed by EventStore and forwarded to QueryStore
-case class TradeEnriched(trade: Trade, closure: TradeEvent)
-case class ValueDateAdded(trade: Trade, closure: TradeEvent)
-
-case object Closing
-case object Snapshot
-case object QueryAllTrades
-
 class TradingClient(val eventStore: EventStore = new EventStore(List(new QueryStore))) {
   // create a trade : wraps the model method
   def newTrade(account: Account, instrument: Instrument, refNo: String, market: Market,
@@ -40,7 +31,7 @@ class TradingClient(val eventStore: EventStore = new EventStore(List(new QuerySt
   // non-blocking: returns a Future
   def getCommandSnapshot = Future[Seq[Trade]]{ eventStore.snapshot.toSeq }
 
-  def getAllTrades = eventStore.listeners.head.asInstanceOf[QueryStore].allTrades
+  def getAllTrades = eventStore.listeners.find(_.id == "store.query").getOrElse(sys.error("Query Store not registered")).asInstanceOf[QueryStore].allTrades
 
   // non-blocking and composition of futures
   // a function to operate on every trade in the list of trades
@@ -82,10 +73,12 @@ case class EventStore(listeners: List[Listener] = List.empty) {
 }
 
 sealed trait Listener {
+  def id: String
   def listen(trade: Trade, evt: => TradeEvent)
 }
 
 class QueryStore extends Listener {
+  val id = "store.query"
   private var trades = new collection.immutable.TreeSet[Trade]()(Ordering.by(_.refNo))
 
   def listen(trade: Trade, evt: => TradeEvent) =
